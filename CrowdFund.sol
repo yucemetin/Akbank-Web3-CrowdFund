@@ -1,4 +1,4 @@
- SPDX-License-Identifier MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 interface IERC20 {
@@ -26,28 +26,28 @@ contract CrowdFund {
     event Refund(uint id, address indexed caller, uint amount);
 
     struct Campaign {
-         Creator of campaign
+        // Creator of campaign
         address creator;
-         Amount of tokens to raise
+        // Amount of tokens to raise
         uint goal;
-         Total amount pledged
+        // Total amount pledged
         uint pledged;
-         Timestamp of start of campaign
+        // Timestamp of start of campaign
         uint32 startAt;
-         Timestamp of end of campaign
+        // Timestamp of end of campaign
         uint32 endAt;
-         True if goal was reached and creator has claimed the tokens.
+        // True if goal was reached and creator has claimed the tokens.
         bool claimed;
     }
 
     IERC20 public immutable token;
-     Total count of campaigns created.
-     It is also used to generate id for new campaigns.
+    // Total count of campaigns created.
+    // It is also used to generate id for new campaigns.
     uint public count;
-     Mapping from id to Campaign
-    mapping(uint = Campaign) public campaigns;
-     Mapping from campaign id = pledger = amount pledged
-    mapping(uint = mapping(address = uint)) public pledgedAmount;
+    // Mapping from id to Campaign
+    mapping(uint => Campaign) public campaigns;
+    // Mapping from campaign id => pledger => amount pledged
+    mapping(uint => mapping(address => uint)) public pledgedAmount;
 
     constructor(address _token) {
         token = IERC20(_token);
@@ -58,18 +58,18 @@ contract CrowdFund {
         uint32 _startAt,
         uint32 _endAt
     ) external {
-        require(_startAt = block.timestamp, start at  now);
-        require(_endAt = _startAt, end at  start at);
-        require(_endAt = block.timestamp + 90 days, end at  max duration);
+        require(_startAt >= block.timestamp, "start at < now");
+        require(_endAt >= _startAt, "end at < start at");
+        require(_endAt <= block.timestamp + 90 days, "end at > max duration");
 
         count += 1;
         campaigns[count] = Campaign({
-            creator msg.sender,
-            goal _goal,
-            pledged 0,
-            startAt _startAt,
-            endAt _endAt,
-            claimed false
+            creator: msg.sender,
+            goal: _goal,
+            pledged: 0,
+            startAt: _startAt,
+            endAt: _endAt,
+            claimed: false
         });
 
         emit Launch(count, msg.sender, _goal, _startAt, _endAt);
@@ -77,8 +77,8 @@ contract CrowdFund {
 
     function cancel(uint _id) external {
         Campaign memory campaign = campaigns[_id];
-        require(campaign.creator == msg.sender, not creator);
-        require(block.timestamp  campaign.startAt, started);
+        require(campaign.creator == msg.sender, "not creator");
+        require(block.timestamp < campaign.startAt, "started");
 
         delete campaigns[_id];
         emit Cancel(_id);
@@ -86,8 +86,8 @@ contract CrowdFund {
 
     function pledge(uint _id, uint _amount) external {
         Campaign storage campaign = campaigns[_id];
-        require(block.timestamp = campaign.startAt, not started);
-        require(block.timestamp = campaign.endAt, ended);
+        require(block.timestamp >= campaign.startAt, "not started");
+        require(block.timestamp <= campaign.endAt, "ended");
 
         campaign.pledged += _amount;
         pledgedAmount[_id][msg.sender] += _amount;
@@ -98,7 +98,7 @@ contract CrowdFund {
 
     function unpledge(uint _id, uint _amount) external {
         Campaign storage campaign = campaigns[_id];
-        require(block.timestamp = campaign.endAt, ended);
+        require(block.timestamp <= campaign.endAt, "ended");
 
         campaign.pledged -= _amount;
         pledgedAmount[_id][msg.sender] -= _amount;
@@ -109,10 +109,10 @@ contract CrowdFund {
 
     function claim(uint _id) external {
         Campaign storage campaign = campaigns[_id];
-        require(campaign.creator == msg.sender, not creator);
-        require(block.timestamp  campaign.endAt, not ended);
-        require(campaign.pledged = campaign.goal, pledged  goal);
-        require(!campaign.claimed, claimed);
+        require(campaign.creator == msg.sender, "not creator");
+        require(block.timestamp > campaign.endAt, "not ended");
+        require(campaign.pledged >= campaign.goal, "pledged < goal");
+        require(!campaign.claimed, "claimed");
 
         campaign.claimed = true;
         token.transfer(campaign.creator, campaign.pledged);
@@ -122,8 +122,8 @@ contract CrowdFund {
 
     function refund(uint _id) external {
         Campaign memory campaign = campaigns[_id];
-        require(block.timestamp  campaign.endAt, not ended);
-        require(campaign.pledged  campaign.goal, pledged = goal);
+        require(block.timestamp > campaign.endAt, "not ended");
+        require(campaign.pledged < campaign.goal, "pledged >= goal");
 
         uint bal = pledgedAmount[_id][msg.sender];
         pledgedAmount[_id][msg.sender] = 0;
